@@ -15,7 +15,16 @@ class Datasets(Enum):
 	RAW_NOTE = "raw-sample-note.txt"
 	PARSED_NOTE = "parsed-sample-note.json"
 	PROCEDURES = "procedure_log.csv"
+	
 
+class Config(Enum):
+	DB_CONN_JSON = "db_conn.json"
+
+def get_config_dir():
+	return os.path.join(os.path.abspath(os.path.dirname(__file__)), "config")
+
+def get_config_file(config):
+	return os.path.join(get_config_dir(), config.value)
 
 def get_data_dir():
 	return os.path.join(os.path.abspath(os.path.dirname(__file__)), "data")
