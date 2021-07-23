@@ -1,0 +1,56 @@
+# About
+This is a write-up of my solution. I chose a lean approach, although I see that there are many opportunities to make this more robust depending on real-world requirements, such as executing certain queries as a batch for test performance reasons, as well as tunable settings like optional tear-down/initialization of database-related setup, etc
+
+# Libraries added
+  - openpyxl
+  - fhir.resources (not used)
+
+# Attention to Details
+Joanne Lee's name looks to have been updated to Cosmia Lee
+John Doe was present in the first data dump, but not the second
+Jerry Jones was present in the second data dump, but not the first
+
+I haven't used / referenced the RHIF specification before this project, so I am new to working with this.
+I noticed that encounterID was displayed in #### format (leading zero-fills), but RHIF spec calls for up to 1MB size ("identifier"). I kept size to something small for the scope of this test.
+I noticed that MRN was displayed in ### format (leading zero-fills). I stored it in the database as a string.
+Time zones are a programmer's best friend :'). I decided to assume UTC-00:00
+Displayed name of a person can vary for numerous reasons, so I added "displayedname"
+
+# Other Notes
+I downloaded a RHIF library into Python for easily building up a RHIF resource, although this may not be necessary.
+I ended up not making use of this
+
+1. After completing this, I realized I should have created a new column and foreignkey constraint under the table "humanname" which links back to the patient table.
+    This change would allow a person's previous names to show up (supposing somebody uses their middle name, etc). Oops!
+    I'd have to remove the foreignkey constraint from the patient table, such that the humanname table is dependent on entries happening in the patient table first
+
+    Edit: I ended up changing it to work this way.
+
+1. The "test_data_loaded.py" test looks like it implied that a Patient has only one "given" name, but FHIR looks like "given" can be an array.
+I noticed that I can produce multiple "HumanName" entities rather than jumble it all up into one "given" field, so I did that.
+
+# Tables
+Created tables for entities.
+
+# Approach
+My approach to load into the database for the purpose of this test is as follows:
+Flow of the tests
+
+1. Connect to the database and prepare the database:
+    1. Drop all tables if they exist
+    2. Create the following tables:
+        - humanname
+        - period
+        - patient
+        - encounter
+
+2. Pre-process the data from the excel spreadsheets
+    1. Load the Excel files into pandas dataframes, then
+        a. Form a union of the two dataframes into one dataframe.
+        b. Update the union to be stored based on the updated timestamp ("Update D/T"). This way, when duplicates get dropped, we can keep the first occurence of our composite key [MRN, EncounterID].
+        c. I chose to use the combination of [MRN, EncounterID] as a composite key when dropping duplicates, although I am sure that just using EncounterID might be sufficient.
+            In dropping duplicates, we can safely keep the first occurence of a [MRN, EncounterID] pair, since this dataframe is sorted based on the "Update D/T" column.
+        d. Remove the artifact all-NaN-rows from the dataframe produced by pandas.
+
+3. Process rows into the database
+    1. Create dependent entries first (patient, period), before creating (humanname, encounter) entries.
